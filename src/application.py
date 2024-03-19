@@ -1,7 +1,12 @@
 import psycopg2
 from sshtunnel import SSHTunnelForwarder
 
-file = open("src/logininfo.txt", "r")
+try:
+    file = open("src/logininfo.txt", "r")
+except:
+    print("Create a file named logininfo.txt in the src directory")
+    exit()
+
 username = file.readline().strip()
 password = file.readline().strip()
 file.close()
