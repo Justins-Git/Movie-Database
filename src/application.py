@@ -2,7 +2,7 @@ import psycopg2
 from sshtunnel import SSHTunnelForwarder
 
 try:
-    file = open("src/logininfo.txt", "r")
+    file = open("logininfo.txt", "r")
 except:
     print("Create a file named logininfo.txt in the src directory")
     exit()
