@@ -13,6 +13,6 @@ How to get python database connection running:
 
 3) pip install psycopg2
 
-4) put login information in logininfo.txt
+4) create file logininfo.txt in src and put in username and password on two lines
 
 5) run application.py, "Database connection established" should print to terminal
