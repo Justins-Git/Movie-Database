@@ -1,9 +1,10 @@
 import psycopg2
 import datetime
+import hashlib
+import secrets
 from sshtunnel import SSHTunnelForwarder
 
 def main():
-
     try:
         file = open("logininfo.txt", "r")
     except:
@@ -63,8 +64,12 @@ def movies(conn, curs, username):
 
 def friends(conn, curs, username):
     curs.execute("SELECT username_friend FROM user_friend WHERE username = %s;", (username,))
+    has_friend = False
     for friend in curs:
+        has_friend = True
         print(f"| {friend[0]}")
+
+    if not has_friend: print("> No Friends")
 
     while True:
         result = input("Remove Friend (R friend-username) | Add Friend (A friend-email) | Quit (Q): ")
@@ -102,27 +107,34 @@ def login(conn, curs):
     username = input("Enter username: ")
     password = input("Enter password: ")
 
-    infos = []
-    success = False
-    curs.execute("SELECT username, password FROM movie_user;")
-    for info in curs:
-        if (username, password) == info:
-            success = True
+    curs.execute("SELECT salt_value FROM movie_user WHERE username=%s;", (username,))
 
-    if not success:
-        ans = input("This login information does not exist, do you wish to create an account with this information? (y/n)")
+    salt_value = curs.fetchone()
+
+    if salt_value != None:
+        # Encrypt (password + salt_value)
+        password = hashlib.sha256(password.join(salt_value[0]).encode('utf-8')).hexdigest()
+        curs.execute("SELECT 1 FROM movie_user WHERE username=%s AND password=%s", (username, password,))
+
+    if curs.fetchone() == None or salt_value == None:
+        ans = input("This login information does not exist, do you wish to create an account with this information? (y/n): ")
         if ans != "y": return None
         else: 
-            firstname = input("Enter first name")
-            lastname = input("Enter last name")
-            curs.execute("INSERT INTO movie_user (username, password, creation_date, last_access_date, first_name, last_name) VALUES (%s, %s, %s, %s, %s, %s);", (username, password, datetime.date.today(), datetime.date.today(), firstname, lastname))
+            firstname = input("Enter first name: ")
+            lastname = input("Enter last name: ")
+            email = input("Enter email: ")
+            salt_value = secrets.token_hex(8)
+            password = hashlib.sha256(password.join(salt_value).encode('utf-8')).hexdigest()
+            curs.execute("INSERT INTO movie_user (username, password, creation_date, last_access_date, first_name, last_name, salt_value) VALUES (%s, %s, %s, %s, %s, %s, %s);", (username, password, datetime.date.today(), datetime.date.today(), firstname, lastname, salt_value))
+            curs.execute("INSERT INTO user_email (username, email) VALUES (%s, %s);", (username, email,))
             conn.commit()
             print("Account successfully created")
     else:
         print("> Login Successful")
     
-    curs.execute("SELECT * FROM user_access_date where access_date=%s AND username=%s", (datetime.date.today(), username,))
+    curs.execute("SELECT 1 FROM user_access_date where access_date=%s AND username=%s", (datetime.date.today(), username,))
 
+    # Only if this user has not logged on today insert new row
     if curs.fetchone() == None:
         curs.execute("INSERT INTO user_access_date (access_date, username) VALUES (%s, %s);", (datetime.date.today(), username))
         conn.commit()
