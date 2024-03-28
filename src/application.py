@@ -116,7 +116,6 @@ def collections(conn, curs, username):
                 hours = int(collection[3]/60)
                 minutes = collection[3]%60
                 print(f"| {collection[0]:<4d}\t\t{collection[1]:30s}\t{collection[2]:<3d}\t\t\t{hours}:{minutes:02d}")
-                
 
 def movies(conn, curs, username):
     # TODO: Search for movies by name, release date, cast members, studio, or
@@ -126,15 +125,52 @@ def movies(conn, curs, username):
     # list by: movie name, studio, genre, and released year (ascending and descending).
     # Rate movies, Watch movies
     while True:
-        answer = input("Watch Movie (W name) | Rate Movie (R name rating(1-5)) | Search for Movie (S name) | Quit (Q)")
+        answer = input("Watch Movie (W movieName) | Rate Movie (R name rating(1-5)) | Search for Movie (S) | Quit (Q)")
         if answer[0:1] == "Q":
             break
         elif answer[0:1] == "W":
-            break
+            movieName = answer[2:]
+            curs.execute(f"SELECT m.name, m.length, m.mpaa_rating, m.movie_id FROM movie m"
+                          + f"WHERE m.name={movieName}")
+            values = curs.fetchone()
+            print(f"| {values[0]}\t{values[1]}\t{values[2]}\n|")
+            movieID = {values[3]}
+            curs.execute(f"SELECT m.release_date FROM released_on m"
+                         + f"WHERE m.movie_id={movieID}")
+            values = curs.fetchone()
+            print(f"| {values[0]}\n|")
+            curs.execute(f"INSERT INTO user_watched (user, movie, time) VALUES {(username, movieID, datetime.date.today())}")
+            conn.commit()
+            print("Film watched.")
         elif answer[0:1] == "R":
-            break
+            movieName, rating = [x for x in answer[2:].split() if x != ""]
+            rating = int(rating)
+            assert 1 <= rating and 5 >= rating
+            curs.execute("SELECT movie_id from movie where name = %s", movieName)
+            movieID = curs.fetchall()
+            if len(movieID) == 0:
+                print("Movie not found")
+            elif len(movieID) > 1:
+                print("!!! Multiple movies found")
+            else:
+                movieID = movieID[0]
+                curs.execute("INSERT INTO user_rating (username, movie_id, star_rating) VALUES (%s, %s, %s)", (username, movieID, rating))
+                conn.commit()
+                print("Rated")
         elif answer[0:1] == "S":
-            break
+            answer = input("Search by Title (T) | Release Date (D) | Cast Members (C) | Studio (S) | Genre (G))
+
+            ]1:0:1 == ""T":
+                check = "title"
+            elif answer[0:1] == "D":
+                check = ""
+            elif an wer[0:1] == "C":
+                pass
+            elif answer[0:1] == "S":
+                pass
+            elif answer[0:1] == "G":
+                pass           
+                pass           
         else:
             print("Invalid Input.")
             break
