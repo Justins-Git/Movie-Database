@@ -183,7 +183,7 @@ def movies(conn, curs, username):
     # list by: movie name, studio, genre, and released year (ascending and descending).
     # Rate movies, Watch movies
     while True:
-        answer = input("Watch Movie (W movieName) | Rate Movie (R name rating(1-5)) | Search for Movie (S) | Quit (Q)")
+        answer = input("Watch Movie (W MovieName) | Rate Movie (R MovieName rating(1-5)) | Search for Movie (S) | Quit (Q)")
         if answer[0:1] == "Q":
             break
         elif answer[0:1] == "W":
