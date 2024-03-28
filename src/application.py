@@ -44,10 +44,11 @@ def main():
                     print("---------------------------------------------------------------------")
                     result = input("View Collections (C) | View Movies (M) | View Friends (F) | Quit (Q): ")
 
-                    if result == "C": collections(conn, curs, username)
-                    elif result == "M": movies(conn, curs, username)
-                    elif result == "F": friends(conn, curs, username)
-                    elif result == "Q": break
+                    if result.upper() == "C": collections(conn, curs, username)
+                    elif result.upper() == "M": movies(conn, curs, username)
+                    elif result.upper() == "F": friends(conn, curs, username)
+                    elif result.upper() == "Q": break
+                    else: print("Invalid Input.")
 
                             
                         
@@ -65,10 +66,10 @@ def collections(conn, curs, username):
         print(f"| {collection[0]:<4d}\t\t{collection[1]:30s}\t{collection[2]:<3d}\t\t\t{hours}:{minutes:02d}")
     while True:    
         answer = input("Create Collection (C) | View Collection (V CollectionID) | View Personal Collections (M) | Quit (Q): ")
-        if answer[0:1] == "Q":
+        if answer[0:1].upper() == "Q":
             break
         
-        elif answer[0:1] == "V":
+        elif answer[0:1].upper() == "V":
             collectionID = int(answer[2:6])
             curs.execute(f"SELECT c.name, COUNT(m.movie_id), SUM(x.length) FROM collection c, collection_contains_movie m, movie x "
                           + f"WHERE m.collection_id={collectionID} AND c.collection_id={collectionID} AND m.movie_id=x.movie_id GROUP BY c.name")
@@ -95,7 +96,7 @@ def collections(conn, curs, username):
                         curs.execute(command)
                         conn.commit()
                     
-        elif answer[0:1] == "C":
+        elif answer[0:1].upper() == "C":
             collectionName = input("\nInsert the name for the collection: ")
             curs.execute("INSERT INTO collection (name) VALUES (%s)", (collectionName,))
             conn.commit()
@@ -110,7 +111,7 @@ def collections(conn, curs, username):
             conn.commit()
             print("Collection successfully created and movie successfully added")
             
-        elif answer[0:1] == "M":
+        elif answer[0:1].upper() == "M":
             curs.execute(f"SELECT c.collection_id, c.name, COUNT(m.movie_id), SUM(x.length) FROM collection c, collection_contains_movie m, movie x, "
                           + f"user_collection u WHERE u.collection_id = c.collection_id AND m.collection_id = c.collection_id AND" + 
                           f" m.movie_id = x.movie_id AND u.username = '{username}' GROUP BY c.name, c.collection_id")
@@ -172,8 +173,8 @@ def collections(conn, curs, username):
                             conn.commit()
                             print("Collection name successfully changed")
                     
-                elif option[0:1] == "Q":
-                    break;
+                elif option[0:1].upper() == "Q":
+                    break
 
 def movies(conn, curs, username):
     # TODO: Search for movies by name, release date, cast members, studio, or
@@ -184,11 +185,11 @@ def movies(conn, curs, username):
     # Rate movies, Watch movies
     while True:
         answer = input("Watch Movie (W MovieName) | Rate Movie (R MovieName rating(1-5)) | Search for Movie (S) | Quit (Q)")
-        if answer[0:1] == "Q":
+        if answer[0:1].upper() == "Q":
             break
-        elif answer[0:1] == "W":
-            movieName = answer[2:]
-            curs.execute(f"SELECT name, length, mpaa_rating, movie_id FROM movie WHERE name = '{movieName}'")
+        elif answer[0:1].upper() == "W":
+            movieName = answer[2:].lower()
+            curs.execute(f"SELECT name, length, mpaa_rating, movie_id FROM movie WHERE LOWER(name) = '{movieName}'")
             values = curs.fetchone()
             movieID = values[3]
             curs.execute(f"SELECT release_date FROM released_on WHERE movie_id = {movieID}")
@@ -197,7 +198,7 @@ def movies(conn, curs, username):
             curs.execute(f"INSERT INTO user_watched (username, movie, time) VALUES (%s, %s, %s)",(username, movieID, datetime.date.today()))
             conn.commit()
             print("| Film watched. |")
-        elif answer[0:1] == "R":
+        elif answer[0:1].upper() == "R":
             movieName, rating = [x for x in answer[2:].split() if x != ""]
             rating = int(rating)
             assert 1 <= rating and 5 >= rating
@@ -212,7 +213,7 @@ def movies(conn, curs, username):
                 curs.execute("INSERT INTO user_rating (username, movie_id, star_rating) VALUES (%s, %s, %s)", (username, movieID, rating))
                 conn.commit()
                 print("Rated")
-        elif answer[0:1] == "S":
+        elif answer[0:1].upper() == "S":
             answer = input("Search by Title (T) | Release Date (D) | Cast Members (C) | Studio (S) | Genre (G): ")
 
             ##answer[0:1] == "T":
@@ -244,7 +245,7 @@ def friends(conn, curs, username):
     while True:
         result = input("Remove Friend (R friend-username) | Add Friend (A friend-email) | Quit (Q): ")
 
-        if result[0:1] == "R":
+        if result[0:1].upper() == "R":
             friend = result[2:]
 
             curs.execute("SELECT FROM user_friend WHERE username=%s AND username_friend=%s", (username, friend,))
@@ -257,7 +258,7 @@ def friends(conn, curs, username):
             else:
                 print(f"> User {friend} could not be found")
 
-        elif result[0:1] == "A":
+        elif result[0:1].upper() == "A":
             friend_email = result[2:]
             curs.execute("SELECT username FROM user_email where email=%s;", (friend_email,))
             friend_username = curs.fetchone()
@@ -271,7 +272,7 @@ def friends(conn, curs, username):
             else:
                 print(f"> User with email {friend_email} could not be found")
 
-        elif result[0:1] == "Q": break 
+        elif result[0:1].upper() == "Q": break 
 
 def login(conn, curs):
     username = input("Enter username: ")
