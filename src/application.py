@@ -100,22 +100,80 @@ def collections(conn, curs, username):
             curs.execute("INSERT INTO collection (name) VALUES (%s)", (collectionName,))
             conn.commit()
             curs.execute("SELECT MAX(collection_id) FROM collection")
-            collID = curs.fetchone()[0]
+            collID = int(curs.fetchone()[0])
             curs.execute(f"INSERT INTO user_collection (username, collection_id) VALUES {(username, collID)}")
             conn.commit()
-            print("Collection successfully created\n")
+            movieName = input("A collection must contain a movie, input a movie name: ")
+            curs.execute(f"SELECT movie_id FROM movie where name = '{movieName}'")
+            movID = int(curs.fetchone()[0])
+            curs.execute(f"INSERT INTO collection_contains_movie (collection_id, movie_id) VALUES {(collID, movID)}")
+            conn.commit()
+            print("Collection successfully created and movie successfully added")
             
         elif answer[0:1] == "M":
-            # TODO: Fix this shit justin 
-            curs.execute(f"SELECT c.name, COUNT(m.movie_id), SUM(x.length) FROM collection c, collection_contains_movie m, movie x, "
-                          + f"user_collection u WHERE m.collection_id = c.collection_id AND m.collection_id = u.collection_id AND" + 
-                          f" m.movie_id = x.movie_id AND u.username = {username} GROUP BY c.name")
+            curs.execute(f"SELECT c.collection_id, c.name, COUNT(m.movie_id), SUM(x.length) FROM collection c, collection_contains_movie m, movie x, "
+                          + f"user_collection u WHERE u.collection_id = c.collection_id AND m.collection_id = c.collection_id AND" + 
+                          f" m.movie_id = x.movie_id AND u.username = '{username}' GROUP BY c.name, c.collection_id")
             print(f"| CollectionID\tName\t\t\t\t Number of Movies\tWatchtime")
             for collection in curs:
                 hours = int(collection[3]/60)
                 minutes = collection[3]%60
-                print(f"| {collection[0]:<4d}\t\t{collection[1]:30s}\t{collection[2]:<3d}\t\t\t{hours}:{minutes:02d}")
-                
+                print(f"| {collection[0]:<4d}\t\t{collection[1]:30s}\t {collection[2]:<3d}\t\t\t{hours}:{minutes:02d}")
+            while True:
+                option = input("Delete Collection (D collectionID) | Modify Collection (M collectionID) | Quit (Q): ")
+                if option[0:1] == "D":
+                    curs.execute(f"DELETE FROM collection WHERE collection_id = {option[2:6]}")
+                    curs.execute(f"DELETE FROM collection_contains_movie WHERE collection_id = {option[2:6]}")
+                    curs.execute(f"DELETE FROM user_collection WHERE collection_id = {option[2:6]}")
+                    conn.commit()
+                    print("Collection successfully deleted!\n")
+                    
+                elif option[0:1] == "M":
+                    while True:
+                        collectionID = int(option[2:6])
+                        curs.execute(f"SELECT c.name, COUNT(m.movie_id), SUM(x.length) FROM collection c, collection_contains_movie m, movie x, user_collection u "
+                                    + f"WHERE m.collection_id={collectionID} AND c.collection_id={collectionID} AND u.collection_id ={collectionID} AND u.username = '{username}' AND m.movie_id=x.movie_id GROUP BY c.name")
+                        values = curs.fetchone()
+                        hours = int(values[2]/60)
+                        minutes = values[2]%60
+                        print(f"| {values[0]}\t{values[1]}\t\t  {hours}:{minutes:02d}\n|")
+                        curs.execute(f"SELECT m.name, m.length FROM collection c, movie m, collection_contains_movie x, user_collection u WHERE " +
+                                    f"x.collection_id = {collectionID} AND c.collection_id={collectionID} AND u.collection_id ={collectionID} AND u.username = '{username}' AND x.movie_id = m.movie_id ORDERBY m.name ASC")
+                        for values in curs:
+                            hours = int(values[1]/60)
+                            minutes = values[1]%60
+                            print(f"| {values[0]:40s}{hours}:{minutes:02d}")
+                        
+                        answer = input("Watch Collection (W) | Add Movie (A movieName) | Remove Movie (R movieName) | Change Collection Name (C newName) | Quit (Q): ")
+                        if answer[0:1] == "Q":
+                            break
+                        elif answer[0:1] == "W":
+                            curs.execute(f"SELECT m.movie_id FROM movie m, collection_contains_movie x WHERE " +
+                                        f"x.collection_id = {collectionID} AND x.movie_id = m.movie_id")
+                            movieID = curs.fetchone()[0]
+                            while movieID != None:
+                                curs.execute(f"INSERT INTO user_watched (user, movie, time) VALUES {(username, movieID, datetime.date.today())}")
+                                conn.commit()
+                                movieID = curs.fetchone()[0]
+                        elif answer[0:1] == "A":
+                            curs.execute(f"SELECT movie_id FROM movie where name = '{answer[2:42]}'")
+                            movID = int(curs.fetchone()[0])
+                            curs.execute(f"INSERT INTO collection_contains_movie (collection_id, movie_id) VALUES {(collectionID, movID)}")
+                            conn.commit()
+                            print("Movie successfully added to collection!\n")
+                        elif answer[0:1] == "R":
+                            curs.execute(f"SELECT movie_id FROM movie where name = '{answer[2:42]}'")
+                            movID = int(curs.fetchone()[0])
+                            curs.execute(f"DELETE FROM collection_contains_movie WHERE movie_id = {movID}")
+                            conn.commit()
+                            print("Movie successfully deleted from collection!\n")
+                        elif answer[0:1] == "C":
+                            curs.execute(f"UPDATE collection SET name = '{answer[2:42]}' WHERE collection_id = {collectionID}")
+                            conn.commit()
+                            print("Collection name successfully changed")
+                    
+                elif option[0:1] == "Q":
+                    break;
 
 def movies(conn, curs, username):
     # TODO: Search for movies by name, release date, cast members, studio, or
@@ -125,15 +183,52 @@ def movies(conn, curs, username):
     # list by: movie name, studio, genre, and released year (ascending and descending).
     # Rate movies, Watch movies
     while True:
-        answer = input("Watch Movie (W name) | Rate Movie (R name rating(1-5)) | Search for Movie (S name) | Quit (Q)")
+        answer = input("Watch Movie (W movieName) | Rate Movie (R name rating(1-5)) | Search for Movie (S) | Quit (Q)")
         if answer[0:1] == "Q":
             break
         elif answer[0:1] == "W":
-            break
+            movieName = answer[2:]
+            curs.execute(f"SELECT m.name, m.length, m.mpaa_rating, m.movie_id FROM movie m"
+                          + f"WHERE m.name={movieName}")
+            values = curs.fetchone()
+            print(f"| {values[0]}\t{values[1]}\t{values[2]}\n|")
+            movieID = {values[3]}
+            curs.execute(f"SELECT m.release_date FROM released_on m"
+                         + f"WHERE m.movie_id={movieID}")
+            values = curs.fetchone()
+            print(f"| {values[0]}\n|")
+            curs.execute(f"INSERT INTO user_watched (user, movie, time) VALUES {(username, movieID, datetime.date.today())}")
+            conn.commit()
+            print("Film watched.")
         elif answer[0:1] == "R":
-            break
+            movieName, rating = [x for x in answer[2:].split() if x != ""]
+            rating = int(rating)
+            assert 1 <= rating and 5 >= rating
+            curs.execute("SELECT movie_id from movie where name = %s", movieName)
+            movieID = curs.fetchall()
+            if len(movieID) == 0:
+                print("Movie not found")
+            elif len(movieID) > 1:
+                print("!!! Multiple movies found")
+            else:
+                movieID = movieID[0]
+                curs.execute("INSERT INTO user_rating (username, movie_id, star_rating) VALUES (%s, %s, %s)", (username, movieID, rating))
+                conn.commit()
+                print("Rated")
         elif answer[0:1] == "S":
-            break
+            answer = input("Search by Title (T) | Release Date (D) | Cast Members (C) | Studio (S) | Genre (G): ")
+
+            ##answer[0:1] == "T":
+            ##    check = "title"
+            ##elif answer[0:1] == "D":
+            ##    check = ""
+            ##elif an wer[0:1] == "C":
+            ##    pass
+            ##elif answer[0:1] == "S":
+            ##    pass
+            ##elif answer[0:1] == "G":
+            ##    pass           
+            ##    pass           
         else:
             print("Invalid Input.")
             break
