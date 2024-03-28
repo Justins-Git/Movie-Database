@@ -119,6 +119,28 @@ def collections(conn, curs, username):
                 
 
 def movies(conn, curs, username):
+    # TODO: Search for movies by name, release date, cast members, studio, or
+    # genre. The resulting list of movies must show the movie’s name, the cast members, the
+    # director, the length and the ratings (MPAA and user). The list must be sorted alpha-
+    # betically (ascending) by movie’s name and release date. Users can sort the resulting
+    # list by: movie name, studio, genre, and released year (ascending and descending).
+    # Rate movies, Watch movies
+    while True:
+        answer = input("Create Movie (C name length(minutes) mpaa_rating) | Watch Movie (W name) | Rate Movie (R name rating(1-5)) | Search for Movie (S name) | Quit (Q)")
+        if answer[0:1] == "Q":
+            break
+        elif answer[0:1] == "C":
+            break
+        elif answer[0:1] == "W":
+            break
+        elif answer[0:1] == "R":
+            break
+        elif answer[0:1] == "S":
+            break
+        else:
+            print("Invalid Input.")
+            break
+
     return
 
 def friends(conn, curs, username):
