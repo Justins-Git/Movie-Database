@@ -57,7 +57,66 @@ def main():
 
 
 def collections(conn, curs, username):
-    return
+    curs.execute("SELECT c.collection_id, c.name, COUNT(m.movie_id), SUM(x.length) FROM collection c, collection_contains_movie m, movie x WHERE c.collection_id=m.collection_id AND m.movie_id=x.movie_id GROUP BY c.collection_id ORDER BY c.name ASC")
+    print(f"| CollectionID\tName\t\t\t\t Number of Movies\tWatchtime")
+    for collection in curs:
+        hours = int(collection[3]/60)
+        minutes = collection[3]%60
+        print(f"| {collection[0]:<4d}\t\t{collection[1]:30s}\t{collection[2]:<3d}\t\t\t{hours}:{minutes:02d}")
+    while True:    
+        answer = input("Create Collection (C) | View Collection (V CollectionID) | View Personal Collections (M) | Quit (Q): ")
+        if answer[0:1] == "Q":
+            break
+        
+        elif answer[0:1] == "V":
+            collectionID = int(answer[2:6])
+            curs.execute(f"SELECT c.name, COUNT(m.movie_id), SUM(x.length) FROM collection c, collection_contains_movie m, movie x "
+                          + f"WHERE m.collection_id={collectionID} AND c.collection_id={collectionID} AND m.movie_id=x.movie_id GROUP BY c.name")
+            values = curs.fetchone()
+            hours = int(values[2]/60)
+            minutes = values[2]%60
+            print(f"| {values[0]}\t{values[1]}\t{hours}:{minutes:02d}\n|")
+            curs.execute(f"SELECT m.name, m.length FROM collection c, movie m, collection_contains_movie x WHERE " +
+                         f"x.collection_id = {collectionID} AND c.collection_id={collectionID} AND x.movie_id = m.movie_id")
+            for values in curs:
+                hours = int(values[1]/60)
+                minutes = values[1]%60
+                print(f"| {values[0]:40s}{hours}:{minutes:02d}")
+            while True:
+                answer = input("Watch Collection (W) | Quit (Q): ")
+                if answer[0:1] == "Q":
+                    break
+                elif answer[0:1] == "W":
+                    curs.execute(f"SELECT m.movie_id FROM movie m, collection_contains_movie x WHERE " +
+                                 f"x.collection_id = {collectionID} AND x.movie_id = m.movie_id")
+                    movieID = curs.fetchone()[0]
+                    while movieID != None:
+                        # TODO: NEEDS TO BE FIXED
+                        curs.execute(f"INSERT INTO user_watched (user, movie, time) VALUES {(username, movieID, datetime.date.today())}")
+                        conn.commit()
+                        movieID = curs.fetchone()[0]
+                    
+        elif answer[0:1] == "C":
+            collectionName = input("\nInsert the name for the collection: ")
+            curs.execute("INSERT INTO collection (name) VALUES (%s)", (collectionName,))
+            conn.commit()
+            curs.execute("SELECT MAX(collection_id) FROM collection")
+            collID = curs.fetchone()[0]
+            curs.execute(f"INSERT INTO user_collection (username, collection_id) VALUES {(username, collID)}")
+            conn.commit()
+            print("Collection successfully created\n")
+            
+        elif answer[0:1] == "M":
+            # TODO: Fix this shit justin 
+            curs.execute(f"SELECT c.name, COUNT(m.movie_id), SUM(x.length) FROM collection c, collection_contains_movie m, movie x, "
+                          + f"user_collection u WHERE m.collection_id = c.collection_id AND m.collection_id = u.collection_id AND" + 
+                          f" m.movie_id = x.movie_id AND u.username = {username} GROUP BY c.name")
+            print(f"| CollectionID\tName\t\t\t\t Number of Movies\tWatchtime")
+            for collection in curs:
+                hours = int(collection[3]/60)
+                minutes = collection[3]%60
+                print(f"| {collection[0]:<4d}\t\t{collection[1]:30s}\t{collection[2]:<3d}\t\t\t{hours}:{minutes:02d}")
+                
 
 def movies(conn, curs, username):
     return
