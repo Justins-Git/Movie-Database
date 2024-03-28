@@ -93,7 +93,6 @@ def collections(conn, curs, username):
                     for id in movieID:
                         command = "INSERT INTO user_watched VALUES ('" +username+"',"+str(id[0])+",'"+str(datetime.date.today())+"');"
                         curs.execute(command)
-                        #curs.execute("INSERT INTO user_watched ([user], movie, time) VALUES (%s, %s, %s);", (username, movieID, datetime.date.today(),))
                         conn.commit()
                     
         elif answer[0:1] == "C":
