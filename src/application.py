@@ -89,12 +89,12 @@ def collections(conn, curs, username):
                 elif answer[0:1] == "W":
                     curs.execute(f"SELECT m.movie_id FROM movie m, collection_contains_movie x WHERE " +
                                  f"x.collection_id = {collectionID} AND x.movie_id = m.movie_id")
-                    movieID = curs.fetchone()[0]
-                    while movieID != None:
-                        # TODO: NEEDS TO BE FIXED
-                        curs.execute(f"INSERT INTO user_watched (user, movie, time) VALUES {(username, movieID, datetime.date.today())}")
+                    movieID = curs.fetchall()
+                    for id in movieID:
+                        command = "INSERT INTO user_watched VALUES ('" +username+"',"+str(id[0])+",'"+str(datetime.date.today())+"');"
+                        curs.execute(command)
+                        #curs.execute("INSERT INTO user_watched ([user], movie, time) VALUES (%s, %s, %s);", (username, movieID, datetime.date.today(),))
                         conn.commit()
-                        movieID = curs.fetchone()[0]
                     
         elif answer[0:1] == "C":
             collectionName = input("\nInsert the name for the collection: ")
