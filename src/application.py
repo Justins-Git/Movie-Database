@@ -48,7 +48,6 @@ def main():
                     elif result.upper() == "M": movies(conn, curs, username)
                     elif result.upper() == "F": friends(conn, curs, username)
                     elif result.upper() == "Q": break
-                    else: print("Invalid Input.")
 
                             
                         
