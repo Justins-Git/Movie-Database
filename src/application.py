@@ -152,7 +152,7 @@ def collections(conn, curs, username):
                                         f"x.collection_id = {collectionID} AND x.movie_id = m.movie_id")
                             movieID = curs.fetchone()[0]
                             while movieID != None:
-                                curs.execute(f"INSERT INTO user_watched (user, movie, time) VALUES {(username, movieID, datetime.date.today())}")
+                                curs.execute(f"INSERT INTO user_watched (username, movie, time) VALUES {(username, movieID, datetime.date.today())}")
                                 conn.commit()
                                 movieID = curs.fetchone()[0]
                         elif answer[0:1] == "A":
@@ -188,18 +188,15 @@ def movies(conn, curs, username):
             break
         elif answer[0:1] == "W":
             movieName = answer[2:]
-            curs.execute(f"SELECT m.name, m.length, m.mpaa_rating, m.movie_id FROM movie m"
-                          + f"WHERE m.name={movieName}")
+            curs.execute(f"SELECT name, length, mpaa_rating, movie_id FROM movie WHERE name = '{movieName}'")
             values = curs.fetchone()
-            print(f"| {values[0]}\t{values[1]}\t{values[2]}\n|")
-            movieID = {values[3]}
-            curs.execute(f"SELECT m.release_date FROM released_on m"
-                         + f"WHERE m.movie_id={movieID}")
-            values = curs.fetchone()
-            print(f"| {values[0]}\n|")
-            curs.execute(f"INSERT INTO user_watched (user, movie, time) VALUES {(username, movieID, datetime.date.today())}")
+            movieID = values[3]
+            curs.execute(f"SELECT release_date FROM released_on WHERE movie_id = {movieID}")
+            values2 = curs.fetchone()
+            print(f"| {values[0]}\tRuntime: {values[1]} minutes\tRating: {values[2]}\tMovie ID: {values[3]}\tRelease Date: {values2[0]} |")
+            curs.execute(f"INSERT INTO user_watched (username, movie, time) VALUES (%s, %s, %s)",(username, movieID, datetime.date.today()))
             conn.commit()
-            print("Film watched.")
+            print("| Film watched. |")
         elif answer[0:1] == "R":
             movieName, rating = [x for x in answer[2:].split() if x != ""]
             rating = int(rating)
@@ -230,7 +227,7 @@ def movies(conn, curs, username):
             ##    pass           
             ##    pass           
         else:
-            print("Invalid Input.")
+            print("Invalid Input. Returning to main menu.")
             break
 
     return
