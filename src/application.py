@@ -89,11 +89,12 @@ def collections(conn, curs, username):
                 elif answer[0:1] == "W":
                     curs.execute(f"SELECT m.movie_id FROM movie m, collection_contains_movie x WHERE " +
                                  f"x.collection_id = {collectionID} AND x.movie_id = m.movie_id")
-                    movieID = curs.fetchone()[0]
-                    while movieID != None:
-                        curs.execute(f"INSERT INTO user_watched (user, movie, time) VALUES {(username, movieID, datetime.date.today())}")
+                    movieID = curs.fetchall()
+                    for id in movieID:
+                        command = "INSERT INTO user_watched VALUES ('" +username+"',"+str(id[0])+",'"+str(datetime.date.today())+"');"
+                        curs.execute(command)
+                        #curs.execute("INSERT INTO user_watched ([user], movie, time) VALUES (%s, %s, %s);", (username, movieID, datetime.date.today(),))
                         conn.commit()
-                        movieID = curs.fetchone()[0]
                     
         elif answer[0:1] == "C":
             collectionName = input("\nInsert the name for the collection: ")
@@ -176,6 +177,63 @@ def collections(conn, curs, username):
                     break;
 
 def movies(conn, curs, username):
+    # TODO: Search for movies by name, release date, cast members, studio, or
+    # genre. The resulting list of movies must show the movie’s name, the cast members, the
+    # director, the length and the ratings (MPAA and user). The list must be sorted alpha-
+    # betically (ascending) by movie’s name and release date. Users can sort the resulting
+    # list by: movie name, studio, genre, and released year (ascending and descending).
+    # Rate movies, Watch movies
+    while True:
+        answer = input("Watch Movie (W movieName) | Rate Movie (R name rating(1-5)) | Search for Movie (S) | Quit (Q)")
+        if answer[0:1] == "Q":
+            break
+        elif answer[0:1] == "W":
+            movieName = answer[2:]
+            curs.execute(f"SELECT m.name, m.length, m.mpaa_rating, m.movie_id FROM movie m"
+                          + f"WHERE m.name={movieName}")
+            values = curs.fetchone()
+            print(f"| {values[0]}\t{values[1]}\t{values[2]}\n|")
+            movieID = {values[3]}
+            curs.execute(f"SELECT m.release_date FROM released_on m"
+                         + f"WHERE m.movie_id={movieID}")
+            values = curs.fetchone()
+            print(f"| {values[0]}\n|")
+            curs.execute(f"INSERT INTO user_watched (user, movie, time) VALUES {(username, movieID, datetime.date.today())}")
+            conn.commit()
+            print("Film watched.")
+        elif answer[0:1] == "R":
+            movieName, rating = [x for x in answer[2:].split() if x != ""]
+            rating = int(rating)
+            assert 1 <= rating and 5 >= rating
+            curs.execute("SELECT movie_id from movie where name = %s", movieName)
+            movieID = curs.fetchall()
+            if len(movieID) == 0:
+                print("Movie not found")
+            elif len(movieID) > 1:
+                print("!!! Multiple movies found")
+            else:
+                movieID = movieID[0]
+                curs.execute("INSERT INTO user_rating (username, movie_id, star_rating) VALUES (%s, %s, %s)", (username, movieID, rating))
+                conn.commit()
+                print("Rated")
+        elif answer[0:1] == "S":
+            answer = input("Search by Title (T) | Release Date (D) | Cast Members (C) | Studio (S) | Genre (G): ")
+
+            ##answer[0:1] == "T":
+            ##    check = "title"
+            ##elif answer[0:1] == "D":
+            ##    check = ""
+            ##elif an wer[0:1] == "C":
+            ##    pass
+            ##elif answer[0:1] == "S":
+            ##    pass
+            ##elif answer[0:1] == "G":
+            ##    pass           
+            ##    pass           
+        else:
+            print("Invalid Input.")
+            break
+
     return
 
 def friends(conn, curs, username):
