@@ -184,7 +184,7 @@ def movies(conn, curs, username):
     # list by: movie name, studio, genre, and released year (ascending and descending).
     # Rate movies, Watch movies
     while True:
-        answer = input("Watch Movie (W MovieName) | Rate Movie (R MovieName rating(1-5)) | Search for Movie (S) | Quit (Q): ")
+        answer = input("Watch Movie (W MovieName) | Rate Movie (R Rating(1-5) MovieName) | Search for Movie (S) | Quit (Q): ")
         if answer[0:1].upper() == "Q":
             break
         elif answer[0:1].upper() == "W":
@@ -199,10 +199,10 @@ def movies(conn, curs, username):
             conn.commit()
             print("| Film watched. |")
         elif answer[0:1].upper() == "R":
-            movieName, rating = [x for x in answer[2:].split() if x != ""]
+            rating, movieName = answer[2:].split(None, 1)
             rating = int(rating)
             assert 1 <= rating and 5 >= rating
-            curs.execute("SELECT movie_id from movie where name = %s", movieName)
+            curs.execute("SELECT movie_id from movie where name = %s", (movieName,))
             movieID = curs.fetchall()
             if len(movieID) == 0:
                 print("Movie not found")
