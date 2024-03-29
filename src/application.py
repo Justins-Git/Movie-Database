@@ -54,6 +54,7 @@ def main():
             conn.close()
     except Exception as error:
             print("Connection Failed...", error)
+            raise error
 
 
 def collections(conn, curs, username):
@@ -183,7 +184,7 @@ def movies(conn, curs, username):
     # list by: movie name, studio, genre, and released year (ascending and descending).
     # Rate movies, Watch movies
     while True:
-        answer = input("Watch Movie (W MovieName) | Rate Movie (R MovieName rating(1-5)) | Search for Movie (S) | Quit (Q)")
+        answer = input("Watch Movie (W MovieName) | Rate Movie (R MovieName rating(1-5)) | Search for Movie (S) | Quit (Q): ")
         if answer[0:1].upper() == "Q":
             break
         elif answer[0:1].upper() == "W":
@@ -213,19 +214,54 @@ def movies(conn, curs, username):
                 conn.commit()
                 print("Rated")
         elif answer[0:1].upper() == "S":
-            answer = input("Search by Title (T) | Release Date (D) | Cast Members (C) | Studio (S) | Genre (G): ")
-
-            ##answer[0:1] == "T":
-            ##    check = "title"
-            ##elif answer[0:1] == "D":
-            ##    check = ""
-            ##elif an wer[0:1] == "C":
-            ##    pass
-            ##elif answer[0:1] == "S":
-            ##    pass
-            ##elif answer[0:1] == "G":
-            ##    pass           
-            ##    pass           
+            answer = input("Search by Title (T) | Release Date (D) | Cast Members (C) | Platform (P) | Genre (G): ").upper()
+            sortBy = input("Sort by Title (T) | Platform (P) | Genre (G) | Release Year (Y): ").upper()
+            aOrD = input("Accending or Decending? (A/d): ").upper()
+            aOrDQ = "DESC" if aOrD == "D" else "ASC"
+            whereQ = None
+            if answer[0:1] == "T":
+                whereQ = "WHERE LOWER(m.name) LIKE %s"
+            elif answer[0:1] == "D":
+                whereQ = "WHERE CAST(r.release_date AS varchar) LIKE %s "
+            elif answer[0:1] == "C":
+                whereQ = "WHERE LOWER(CONCAT(c_c.first_name, ' ', c_c.last_name)) LIKE %s "
+            elif answer[0:1] == "P":
+                whereQ = "WHERE LOWER(r.platform_name) LIKE %s "
+            elif answer[0:1] == "G":
+                whereQ = "WHERE LOWER(g.genre_name) LIKE %s "
+            else:
+                print("Invalid search, fetching all entries")
+                whereQ = ""
+            sortByQ = None
+            if sortBy[0:1] == "T":
+                sortByQ = f"ORDER BY m.name {aOrDQ}"
+            elif sortBy[0:1] == "P":
+                sortByQ = f"ORDER BY r.platform_name {aOrDQ}"
+            elif sortBy[0:1] == "G":
+                sortByQ = f"ORDER BY g.genre_name {aOrDQ}"
+            elif sortBy[0:1] == "Y":
+                sortByQ = f"ORDER BY DATE_PART('year', DATE(r.release_date)) {aOrDQ}"
+            else:
+                print("Invalid sort, not sorting output")
+                sortByQ = ""
+            search = "%" + input("Search: ").strip().lower() + "%"
+            curs.execute(
+                "SELECT m.name, DATE(r.release_date), c_c.first_name, c_c.last_name, c_d.first_name, c_d.last_name, m.length, m.mpaa_rating, ur.star_rating "
+                "FROM movie m "
+                "LEFT JOIN acted_in ac ON m.movie_id = ac.movie_id "
+                "LEFT JOIN contributor c_c ON ac.contributor_id = c_c.contributor_id "
+                "LEFT JOIN directed dr ON m.movie_id = dr.movie_id "
+                "LEFT JOIN contributor c_d ON dr.contributor_id = c_d.contributor_id "
+                "LEFT JOIN released_on r ON m.movie_id = r.movie_id "
+                "LEFT JOIN movie_genre g ON m.movie_id = g.movie_id "
+                "LEFT JOIN user_rating ur ON (m.movie_id = ur.movie_id AND ur.username = %s) "
+                + whereQ + sortByQ,
+                (username, search)
+            )
+            foundEntries = curs.fetchall()
+            print(f"Found {len(foundEntries)} entries:")
+            for row in foundEntries:
+                print(f"| {row[0]}\tReleased: {row[1]}\tCrew: {row[2]} {row[3]}\tDirected: {row[4]} {row[5]}\tLength: {row[6]}s\tMPAA Rating: {row[7]}\tUser Rating: {row[8]}")
         else:
             print("Invalid Input. Returning to main menu.")
             break
