@@ -60,14 +60,15 @@ def main():
 
 
 def collections(conn, curs, username):
-    curs.execute("SELECT c.collection_id, c.name, COUNT(m.movie_id), SUM(x.length) FROM collection c, collection_contains_movie m, movie x WHERE c.collection_id=m.collection_id AND m.movie_id=x.movie_id GROUP BY c.collection_id ORDER BY c.name ASC")
-    print(f"| CollectionID\tName\t\t\t\t Number of Movies\tWatchtime")
-    for collection in curs:
-        hours = int(collection[3]/60)
-        minutes = collection[3]%60
-        print(f"| {collection[0]:<4d}\t\t{collection[1]:30s}\t{collection[2]:<3d}\t\t\t{hours}:{minutes:02d}")
-    while True:    
-        answer = input("Create Collection (C) | View Collection (V CollectionID) | View Personal Collections (M) | Quit (Q): ")
+    while True:   
+        curs.execute("SELECT c.collection_id, c.name, COUNT(m.movie_id), SUM(x.length) FROM collection c, collection_contains_movie m, movie x WHERE c.collection_id=m.collection_id AND m.movie_id=x.movie_id GROUP BY c.collection_id ORDER BY c.name ASC")
+        print(f"| CollectionID\tName\t\t\t\t Number of Movies\tWatchtime")
+        for collection in curs:
+            hours = int(collection[3]/60)
+            minutes = collection[3]%60
+            print(f"| {collection[0]:<4d}\t\t{collection[1]:30s}\t{collection[2]:<3d}\t\t\t{hours}:{minutes:02d}")
+         
+        answer = input("Create Collection (C) | View Collection (V CollectionID) | Manage Personal Collections (M) | Quit (Q): ")
         if answer[0:1].upper() == "Q":
             break
         
@@ -114,20 +115,21 @@ def collections(conn, curs, username):
             print("Collection successfully created and movie successfully added")
             
         elif answer[0:1].upper() == "M":
-            curs.execute(f"SELECT c.collection_id, c.name, COUNT(m.movie_id), SUM(x.length) FROM collection c, collection_contains_movie m, movie x, "
-                          + f"user_collection u WHERE u.collection_id = c.collection_id AND m.collection_id = c.collection_id AND" + 
-                          f" m.movie_id = x.movie_id AND u.username = '{username}' GROUP BY c.name, c.collection_id")
-            print(f"| CollectionID\tName\t\t\t\t Number of Movies\tWatchtime")
-            for collection in curs:
-                hours = int(collection[3]/60)
-                minutes = collection[3]%60
-                print(f"| {collection[0]:<4d}\t\t{collection[1]:30s}\t {collection[2]:<3d}\t\t\t{hours}:{minutes:02d}")
             while True:
+                curs.execute(f"SELECT c.collection_id, c.name, COUNT(m.movie_id), SUM(x.length) FROM collection c, collection_contains_movie m, movie x, "
+                          + f"user_collection u WHERE u.collection_id = c.collection_id AND m.collection_id = c.collection_id AND" + 
+                          f" m.movie_id = x.movie_id AND u.username = '{username}' GROUP BY c.name, c.collection_id ORDER BY c.name ASC;")
+                print(f"| CollectionID\tName\t\t\t\t Number of Movies\tWatchtime")
+                for collection in curs:
+                    hours = int(collection[3]/60)
+                    minutes = collection[3]%60
+                    print(f"| {collection[0]:<4d}\t\t{collection[1]:30s}\t {collection[2]:<3d}\t\t\t{hours}:{minutes:02d}")
                 option = input("Delete Collection (D collectionID) | Modify Collection (M collectionID) | Quit (Q): ")
+
                 if option[0:1] == "D":
-                    curs.execute(f"DELETE FROM collection WHERE collection_id = {option[2:6]}")
                     curs.execute(f"DELETE FROM collection_contains_movie WHERE collection_id = {option[2:6]}")
                     curs.execute(f"DELETE FROM user_collection WHERE collection_id = {option[2:6]}")
+                    curs.execute(f"DELETE FROM collection WHERE collection_id = {option[2:6]}")
                     conn.commit()
                     print("Collection successfully deleted!\n")
                     
@@ -141,23 +143,15 @@ def collections(conn, curs, username):
                         minutes = values[2]%60
                         print(f"| {values[0]}\t{values[1]}\t\t  {hours}:{minutes:02d}\n|")
                         curs.execute(f"SELECT m.name, m.length FROM collection c, movie m, collection_contains_movie x, user_collection u WHERE " +
-                                    f"x.collection_id = {collectionID} AND c.collection_id={collectionID} AND u.collection_id ={collectionID} AND u.username = '{username}' AND x.movie_id = m.movie_id ORDERBY m.name ASC")
+                                    f"x.collection_id = {collectionID} AND c.collection_id={collectionID} AND u.collection_id ={collectionID} AND u.username = '{username}' AND x.movie_id = m.movie_id ORDER BY m.name ASC")
                         for values in curs:
                             hours = int(values[1]/60)
                             minutes = values[1]%60
                             print(f"| {values[0]:40s}{hours}:{minutes:02d}")
                         
-                        answer = input("Watch Collection (W) | Add Movie (A movieName) | Remove Movie (R movieName) | Change Collection Name (C newName) | Quit (Q): ")
+                        answer = input("Add Movie (A movieName) | Remove Movie (R movieName) | Change Collection Name (C newName) | Quit (Q): ")
                         if answer[0:1] == "Q":
                             break
-                        elif answer[0:1] == "W":
-                            curs.execute(f"SELECT m.movie_id FROM movie m, collection_contains_movie x WHERE " +
-                                        f"x.collection_id = {collectionID} AND x.movie_id = m.movie_id")
-                            movieID = curs.fetchone()[0]
-                            while movieID != None:
-                                curs.execute(f"INSERT INTO user_watched (username, movie, time) VALUES {(username, movieID, datetime.date.today())}")
-                                conn.commit()
-                                movieID = curs.fetchone()[0]
                         elif answer[0:1] == "A":
                             curs.execute(f"SELECT movie_id FROM movie where name = '{answer[2:42]}'")
                             movID = int(curs.fetchone()[0])
@@ -167,7 +161,7 @@ def collections(conn, curs, username):
                         elif answer[0:1] == "R":
                             curs.execute(f"SELECT movie_id FROM movie where name = '{answer[2:42]}'")
                             movID = int(curs.fetchone()[0])
-                            curs.execute(f"DELETE FROM collection_contains_movie WHERE movie_id = {movID}")
+                            curs.execute(f"DELETE FROM collection_contains_movie WHERE movie_id = {movID} and collection_id = {collectionID};")
                             conn.commit()
                             print("Movie successfully deleted from collection!\n")
                         elif answer[0:1] == "C":
@@ -271,15 +265,15 @@ def movies(conn, curs, username):
     return
 
 def friends(conn, curs, username):
-    curs.execute("SELECT username_friend FROM user_friend WHERE username = %s;", (username,))
-    has_friend = False
-    for friend in curs:
-        has_friend = True
-        print(f"| {friend[0]}")
-
-    if not has_friend: print("> No Friends")
-
     while True:
+        curs.execute("SELECT username_friend FROM user_friend WHERE username = %s;", (username,))
+        has_friend = False
+        for friend in curs:
+            has_friend = True
+            print(f"| {friend[0]}")
+
+        if not has_friend: print("> No Friends")
+
         result = input("Remove Friend (R friend-username) | Add Friend (A friend-email) | Quit (Q): ")
 
         if result[0:1].upper() == "R":
@@ -338,6 +332,8 @@ def login(conn, curs):
             conn.commit()
             print("Account successfully created")
     else:
+        curs.execute("UPDATE movie_user SET last_access_date=%s WHERE username=%s", (datetime.date.today(), username,))
+        conn.commit()
         print("> Login Successful")
     
     curs.execute("SELECT 1 FROM user_access_date where access_date=%s AND username=%s", (datetime.date.today(), username,))
