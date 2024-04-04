@@ -44,11 +44,16 @@ def main():
             if username != None:  
                 while True:
                     print("---------------------------------------------------------------------")
-                    result = input("View Collections (C) | View Movies (M) | View Friends (F) | Quit (Q): ")
+                    result = input("View Collections (C) | View Movies (M) | View Friends (F) | View Profile (P username) | Quit (Q): ")
 
                     if result.upper() == "C": collections(conn, curs, username)
                     elif result.upper() == "M": movies(conn, curs, username)
                     elif result.upper() == "F": friends(conn, curs, username)
+                    elif result[0:1].upper() == "P": 
+                        if result[2:] == "":    
+                            profile(conn, curs, username)
+                        else:
+                            profile(conn, curs, result[2:])    
                     elif result.upper() == "Q": break
 
                             
@@ -344,6 +349,30 @@ def login(conn, curs):
         conn.commit()
 
     return username
+
+def profile(conn, curs, username):
+    print("Loading user profile...\n")
+    print("---------------------------------------------------------------------\n")
+    print(f"User Profile: {username}\n")
+    curs.execute("SELECT count(*) FROM user_collection WHERE username=%s;", (username,))
+    collCount = curs.fetchone()[0]
+    curs.execute("SELECT count(*) FROM user_friend WHERE username=%s", (username,))
+    followingCount = curs.fetchone()[0]
+    curs.execute("SELECT count(*) FROM user_friend where username_friend=%s", (username,))
+    followerCount = curs.fetchone()[0]
+    print(f"Total number of collections created by '{username}' is: {collCount}")
+    print(f"Amount of people that '{username}' follows: {followingCount}")
+    print(f"Amount of people following '{username}': {followerCount}")
+    print(f"\nTop 10 Most Watched movies by '{username}':")
+    curs.execute("SELECT m.name FROM user_watched u, movie m WHERE u.movie=m.movie_id "
+                 + "AND u.username=%s GROUP BY m.name ORDER BY COUNT(u.movie) DESC LIMIT 10", (username,))
+    place = 1
+    for movie in curs:
+        print(f"{place}: {movie[0]}")
+        place += 1
+        if place > 10:
+            break 
+
 
 
 if __name__ == "__main__":
