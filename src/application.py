@@ -63,7 +63,6 @@ def main():
             print("Connection Failed...", error)
             raise error
 
-
 def collections(conn, curs, username):
     while True:   
         curs.execute("SELECT c.collection_id, c.name, COUNT(m.movie_id), SUM(x.length) FROM collection c, collection_contains_movie m, movie x WHERE c.collection_id=m.collection_id AND m.movie_id=x.movie_id GROUP BY c.collection_id ORDER BY c.name ASC")
@@ -185,7 +184,7 @@ def movies(conn, curs, username):
     # list by: movie name, studio, genre, and released year (ascending and descending).
     # Rate movies, Watch movies
     while True:
-        answer = input("Watch Movie (W MovieName) | Rate Movie (R Rating(1-5) MovieName) | Search for Movie (S) | Quit (Q): ")
+        answer = input("Watch Movie (W MovieName) | Rate Movie (R Rating(1-5) MovieName) | Search for Movie (S) | Recommend Movie (E) | Quit (Q): ")
         if answer[0:1].upper() == "Q":
             break
         elif answer[0:1].upper() == "W":
@@ -263,10 +262,91 @@ def movies(conn, curs, username):
             print(f"Found {len(foundEntries)} entries:")
             for row in foundEntries:
                 print(f"| {row[0]}\tReleased: {row[1]}\tCrew: {row[2]} {row[3]}\tDirected: {row[4]} {row[5]}\tLength: {row[6]}s\tMPAA Rating: {row[7]}\tUser Rating: {row[8]}")
+        elif answer[0:1].upper() == "E":
+            answer = input("Popular in last 90 days (D) | Popular amoung followers (F) | Top new releases (T) | For you (Y): ")
+            if answer[0:1].upper() == "D":
+                curs.execute(
+                    "SELECT m.movie_id, m.name "
+                    "FROM movie m "
+                    "JOIN ("
+                        "SELECT w.movie AS movie_id, COUNT(w.movie) AS pop "
+                        "FROM user_watched w "
+                        "WHERE w.time >= %s "
+                        "GROUP BY w.movie"
+                    ") pop_tbl ON pop_tbl.movie_id = m.movie_id "
+                    "ORDER BY pop_tbl.pop DESC "
+                    "LIMIT 20",
+                    (datetime.date.today() - datetime.timedelta(days = 90),)
+                )
+                foundEntries = curs.fetchall()
+                print(f"Found {len(foundEntries)} entries:")
+                for row in foundEntries:
+                    print(f"| ID: {row[0]}\tName: {row[1]}")
+            elif answer[0:1].upper() == "F":
+                curs.execute(
+                    "SELECT m.movie_id, m.name "
+                    "FROM movie m "
+                    "JOIN ("
+                        "SELECT w.movie AS movie_id, COUNT(w.movie) AS pop "
+                        "FROM user_watched w "
+                        "WHERE w.username in (SELECT user1 FROM user_friend_commute WHERE user2 = %s) "
+                        "GROUP BY w.movie"
+                    ") pop_tbl ON pop_tbl.movie_id = m.movie_id "
+                    "ORDER BY pop DESC "
+                    "LIMIT 20",
+                    (username,)
+                )
+                foundEntries = curs.fetchall()
+                print(f"Found {len(foundEntries)} entries:")
+                for row in foundEntries:
+                    print(f"| ID: {row[0]}\tName: {row[1]}")
+            elif answer[0:1].upper() == "T":
+                today = datetime.date.today()
+                curs.execute(
+                    "SELECT m.movie_id, m.name "
+                    "FROM movie m "
+                    "JOIN ("
+                        "SELECT w.movie AS movie_id, COUNT(w.movie) AS pop "
+                        "FROM user_watched w "
+                        "GROUP BY w.movie"
+                    ") pop_tbl ON pop_tbl.movie_id = m.movie_id "
+                    "WHERE m.movie_id IN ("
+                        "SELECT movie_id FROM released_on WHERE release_date LIKE %s"
+                    ")"
+                    "ORDER BY pop_tbl.pop DESC "
+                    "LIMIT 5",
+                    (today.strftime("%%%b-%y"),)
+                )
+                foundEntries = curs.fetchall()
+                print(f"Found {len(foundEntries)} entries:")
+                for row in foundEntries:
+                    print(f"| ID: {row[0]}\tName: {row[1]}")
+            elif answer[0:1].upper() == "Y":
+                # finds movies from genres you and your friends watch a lot of
+                curs.execute(
+                    "SELECT m.movie_id, m.name "
+                    "FROM movie m "
+                    "JOIN movie_genre g2 ON g2.movie_id = m.movie_id "
+                    "JOIN ("
+                        "SELECT g.genre_name AS genre, COUNT(g.genre_name) AS count "
+                        "FROM user_watched w "
+                        "JOIN movie_genre g ON g.movie_id = w.movie "
+                        "WHERE w.username = %s OR w.username IN (SELECT user1 FROM user_friend_commute WHERE user2 = %s) "
+                        "GROUP BY g.genre_name"
+                    ") pop_tbl ON pop_tbl.genre = g2.genre_name "
+                    "GROUP BY m.movie_id "
+                    "ORDER BY SUM(pop_tbl.count) DESC "
+                    "LIMIT 20 ",
+                    (username,username)
+                )
+                foundEntries = curs.fetchall()
+                print(f"Found {len(foundEntries)} entries:")
+                for row in foundEntries:
+                    print(f"| ID: {row[0]}\tName: {row[1]}")
+            else:
+                print("Invalid Input")
         else:
-            print("Invalid Input. Returning to main menu.")
-            break
-
+            print("Invalid Input")
     return
 
 def friends(conn, curs, username):
